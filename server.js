@@ -31,6 +31,15 @@ function verifyCallback(accessToken, refreshToken, profile, done){
 }
 
 passport.use(new Strategy(AUTH_OPTIONS, verifyCallback))
+
+passport.serializeUser((user,done)=>{
+  done(null,user.id)
+})
+
+passport.deserializeUser((id,done)=>{
+  done(null, id)
+})
+
 const app = express();
 
 app.use(helmet());
@@ -40,9 +49,10 @@ app.use(cookieSession({
   keys: [config.COOKIE_KEY1, config.COOKIE_KEY2]
 }))
 app.use(passport.initialize())
+app.use(passport.session())
 
 function checkeLogged(req,res,next){
-  const isLogged = true;
+  const isLogged = req.isAuthenticated() && req.user;
   if(!isLogged){
     return res.status(401).json({
       error: 'you must first log in'
@@ -58,12 +68,15 @@ app.get('/auth/google', passport.authenticate('google',{
 app.get('/auth/google/callback', passport.authenticate('google', {
   failureRedirect: '/failure',
   successRedirect: '/',
-  session: false
+  session: true
 }), (req, res)=>{
   console.log('Google called back');
 });
 
-app.get('/auth/logout', (req,res)=>{});
+app.get('/auth/logout', (req,res)=>{
+  req.logOut();
+  return res.redirect('/')
+});
 
 app.get('/secret', checkeLogged, (req,res) => {
   return res.send('your token is 44')
